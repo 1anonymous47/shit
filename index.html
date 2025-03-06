@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Image Captioning</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            text-align: center;
+            padding: 20px;
+        }
+        input {
+            margin: 10px;
+        }
+        img {
+            max-width: 300px;
+            margin: 10px;
+            display: none;
+        }
+        .container {
+            border: 2px solid #ccc;
+            padding: 20px;
+            width: 400px;
+            margin: auto;
+            border-radius: 10px;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="container">
+        <h2>Upload an Image for Captioning</h2>
+        <input type="file" id="imageInput" accept="image/*">
+        <br>
+        <img id="previewImage" alt="Image Preview">
+        <br>
+        <button onclick="uploadImage()">Generate Caption</button>
+        <h3 id="captionResult"></h3>
+    </div>
+
+    <script>
+        document.getElementById('imageInput').addEventListener('change', function(event) {
+            let reader = new FileReader();
+            reader.onload = function() {
+                let imgElement = document.getElementById("previewImage");
+                imgElement.src = reader.result;
+                imgElement.style.display = "block";
+            };
+            reader.readAsDataURL(event.target.files[0]);
+        });
+
+        async function uploadImage() {
+            let fileInput = document.getElementById("imageInput");
+            let file = fileInput.files[0];
+
+            if (!file) {
+                alert("Please select an image first!");
+                return;
+            }
+
+            let formData = new FormData();
+            formData.append("file", file);
+
+            document.getElementById("captionResult").innerText = "Generating caption...";
+
+            let response = await fetch("http://localhost:8000/predict/", {
+                method: "POST",
+                body: formData
+            });
+
+            let result = await response.json();
+            document.getElementById("captionResult").innerText = "Caption: " + result.caption;
+        }
+    </script>
+
+</body>
+</html>

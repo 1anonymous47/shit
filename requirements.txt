@@ -1,0 +1,8 @@
+fastapi 
+uvicorn 
+pillow
+tensorflow
+numpy
+pickle
+io
+PIL
