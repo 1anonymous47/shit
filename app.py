@@ -1,7 +1,8 @@
 from fastapi import FastAPI, File, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
-
+from fastapi.responses import HTMLResponse
+import uvicorn
 
 from PIL import Image
 import io
@@ -12,11 +13,22 @@ from tensorflow.keras.layers import LSTM
 from tensorflow.keras.utils import img_to_array
 from tensorflow.keras.preprocessing.sequence import pad_sequences
 from tensorflow.keras.applications.resnet50 import ResNet50, preprocess_input
+import os
 
+app = FastAPI()
 
+# Enable CORS
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"], 
+    allow_credentials=True,
+    allow_methods=["*"], 
+    allow_headers=["*"], 
+)
 
+# === Model and Preprocessing Setup ===
 custom_objects = {"LSTM": lambda **kwargs: LSTM(**{k: v for k, v in kwargs.items() if k != "time_major"})}
-model_path = r"models\model_weights_25.h5"
+model_path = r"models/model_weights_25.h5"
 
 try:
     model = load_model(model_path, custom_objects=custom_objects)
@@ -29,10 +41,10 @@ model_resnet.trainable = False
 model_final = Model(model_resnet.input, model_resnet.layers[-2].output)
 
 try:
-    with open(r"models\word_to_idx.pkl", "rb") as w2i:
+    with open(r"models/word_to_idx.pkl", "rb") as w2i:
         word_to_idx = pickle.load(w2i)
 
-    with open(r"models\idx_to_word.pkl", "rb") as i2w:
+    with open(r"models/idx_to_word.pkl", "rb") as i2w:
         idx_to_word = pickle.load(i2w)
 except Exception as e:
     print(f"Error loading word mappings: {e}")
@@ -71,27 +83,24 @@ def predict_caption_using_greedySearch(photo):
             break
 
     final_caption = inp_text.split(" ")[1:-1]
-    final_caption = " ".join(final_caption)
+    return " ".join(final_caption)
 
-    return final_caption
-
-app = FastAPI()
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["*"], 
-    allow_credentials=True,
-    allow_methods=["*"], 
-    allow_headers=["*"], 
-)
+# === API Route ===
 @app.post("/predict/")
 async def predict(file: UploadFile = File(...)):
     try:
         image = Image.open(io.BytesIO(await file.read()))
         encoded_img = encode_image(image)
-        
         caption = predict_caption_using_greedySearch(encoded_img)
         return {"caption": caption}
-    
     except Exception as e:
         return {"error": str(e)}
 
+# === Host Static Web Page ===
+frontend_path = os.path.join(os.path.dirname(__file__),)
+app.mount("/", StaticFiles(directory=frontend_path, html=True), name="static")
+
+# === Run Server ===
+if __name__ == "__main__":
+    print("✅ Starting FastAPI server...")
+    uvicorn.run(app, host="0.0.0.0", port=8000)
